@@ -15,7 +15,7 @@
              <span class="ml-2">Welcome, {{ user.username }}</span>
             <a href="{% url 'create_post' %}" class="hover:underline">Create Post</a>
             <a href="{% url 'profile' %}" class="hover:underline">Profile</a>
-           
+            <span class="ml-2">Welcome, {{ user.username }}</span>
             <a href="{% url 'logout' %}" class="ml-2 hover:underline">Logout</a>
         {% else %}
             <a href="{% url 'login' %}" class="hover:underline">Login</a>

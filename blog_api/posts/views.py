@@ -39,6 +39,11 @@ def post_detail(request, slug):
     comments = post.comments.filter(approved=True)
     post.click_count += 1
     post.save(update_fields=['click_count'])
+
+    # Check if image exists on disk
+    if post.image and not post.image.storage.exists(post.image.name):
+        post.image = None
+
     if request.method == "POST" and request.user.is_authenticated:
         content = request.POST.get("content")
         if content.strip():
@@ -46,7 +51,6 @@ def post_detail(request, slug):
             return redirect("post_detail", slug=post.slug)
 
     return render(request, "posts/post_detail.html", {"post": post, "comments": comments})
-
 
 # --- Authentication ---
 @csrf_protect

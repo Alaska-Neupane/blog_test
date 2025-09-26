@@ -4,6 +4,8 @@ from django.conf import settings
 from django.utils.text import slugify
 from PIL import Image
 from django.utils import timezone
+import os
+from django.conf import settings
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     auth_id = models.CharField(max_length=255, unique=True)
@@ -50,9 +52,8 @@ class Post(models.Model):
         if not self.slug:
             self.slug = slugify(self.title)
         super().save(*args, **kwargs)
-        if self.image:
-
-            img = Image.open(self.image.path)
+        if self.image and os.path.exists(self.image.path):
+            img = Image.open(self.image)
             img = img.convert("RGB")
             img.thumbnail((400, 400))
 
