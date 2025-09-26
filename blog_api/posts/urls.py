@@ -17,6 +17,7 @@ urlpatterns = [
     path('register/', views.register_view, name='register'),
     path('profile/', views.profile_view, name='profile'),
     path('posts/<slug:slug>/comment/', views.add_comment, name='add_comment'),  
+    path('test/', views.TestView.as_view(), name='test'),  # Test view with throttling
 ]
 
 # API routes

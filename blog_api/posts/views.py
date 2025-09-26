@@ -12,8 +12,13 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.utils.text import slugify
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect
+from django.shortcuts import redirect,render
+from django.contrib import messages
+from django.contrib.auth import login, authenticate, logout
 from django.shortcuts import get_object_or_404, render
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 # Home page with search
 def post_list(request):
     query = request.GET.get("q")
@@ -71,6 +76,7 @@ def login_view(request):
             login(request, user)
             return redirect("post_list")
         else:
+            messages.error(request, "Wrong Credintals!! Please enter correct details.")
             return render(request, "registration/login.html", {"error": "Invalid credentials"})
     return render(request, "registration/login.html")
 
@@ -115,17 +121,22 @@ def edit_post(request, slug):
     post = get_object_or_404(Post, slug=slug)
     if post.author != request.user:
         return redirect("post_detail", slug=slug)
+
     if request.method == "POST":
         post.title = request.POST.get("title")
         post.slug = slugify(request.POST.get("slug", post.title))
         post.content = request.POST.get("content")
         post.status = request.POST.get("status")
         post.published_at = request.POST.get("published_at") or None
-        post.image = request.FILES.get("image") or post.image
-        
+
+        if "image" in request.FILES:  # only update if new image uploaded
+            post.image = request.FILES["image"]
+
         post.save()
         return redirect("post_detail", slug=post.slug)
+
     return render(request, "posts/edit_post.html", {"post": post})
+
 
 
 @login_required
@@ -159,7 +170,11 @@ class PostViewSet(viewsets.ModelViewSet):
         serializer.save(author=self.request.user)
 
     def perform_update(self, serializer):
-        serializer.save(author=self.request.user)
+       if 'image' in self.request.FILES:
+          serializer.save(author=self.request.user, image=self.request.FILES['image'])
+       else:
+           serializer.save(author=self.request.user)
+
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.click_count += 1
@@ -185,3 +200,11 @@ def add_comment(request, slug):
         if content:
             Comment.objects.create(post=post, author=request.user, content=content, approved=True)
     return redirect('post_detail', slug=slug)
+
+    
+class TestView(APIView):
+    # explicitly setting throttles for this view
+    throttle_classes = [UserRateThrottle, AnonRateThrottle]
+
+    def get(self, request, *args, **kwargs):
+        return Response({"message": "hello", "user": str(request.user)})

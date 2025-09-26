@@ -2,7 +2,8 @@ import uuid
 from django.db import models
 from django.conf import settings
 from django.utils.text import slugify
-
+from PIL import Image
+from django.utils import timezone
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     auth_id = models.CharField(max_length=255, unique=True)
@@ -36,21 +37,28 @@ class Post(models.Model):
     slug = models.SlugField(unique=True, blank=True)
     content = models.TextField()
     excerpt = models.TextField(blank=True)
-    image = models.ImageField(upload_to="posts/images/", blank=True, null=True)  
+    image = models.ImageField(upload_to="posts/images/post_detail_img", blank=True, null=True)  
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    published_at = models.DateTimeField(null=True, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True, auto_now_add=True,)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     tags = models.ManyToManyField(Tag, through='PostTag', blank=True)
     click_count = models.PositiveIntegerField(default=0) 
     def save(self, *args, **kwargs):
+        if self.status == "published" and not self.published_at:
+              self.published_at = timezone.now()
         if not self.slug:
             self.slug = slugify(self.title)
         super().save(*args, **kwargs)
-
+        if self.image:
+            img = Image.open(self.image.path)
+            if img.height > 400 or img.width > 400:
+                output_size = (400, 400)
+                img.thumbnail(output_size)
+                img = img.convert('RGB') 
+                img.save(self.image.path, quality=90, optimize=True)
     def __str__(self):
         return self.title
-
 
 class PostTag(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
