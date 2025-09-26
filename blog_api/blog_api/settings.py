@@ -95,7 +95,7 @@ TEMPLATES = [
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']  # Development
-# STATIC_ROOT = BASE_DIR / 'staticfiles'  # Production - for collectstatic
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # Production - for collectstatic
 
 # Media files (user uploads - if you add image upload later)
 MEDIA_URL = '/media/'
