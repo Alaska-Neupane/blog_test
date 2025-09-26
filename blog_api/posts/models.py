@@ -1,4 +1,4 @@
-import uuid
+import uuid,os
 from django.db import models
 from django.conf import settings
 from django.utils.text import slugify
@@ -37,7 +37,7 @@ class Post(models.Model):
     slug = models.SlugField(unique=True, blank=True)
     content = models.TextField()
     excerpt = models.TextField(blank=True)
-    image = models.ImageField(upload_to="posts/images/post_detail_img", blank=True, null=True)  
+    image = models.ImageField(upload_to="posts/images/post_detail_img", blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     published_at = models.DateTimeField(null=True, blank=True, auto_now_add=True,)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -51,12 +51,30 @@ class Post(models.Model):
             self.slug = slugify(self.title)
         super().save(*args, **kwargs)
         if self.image:
+
             img = Image.open(self.image.path)
-            if img.height > 400 or img.width > 400:
-                output_size = (400, 400)
-                img.thumbnail(output_size)
-                img = img.convert('RGB') 
-                img.save(self.image.path, quality=90, optimize=True)
+            img = img.convert("RGB")
+            img.thumbnail((400, 400))
+
+            base, ext = os.path.splitext(os.path.basename(self.image.name))
+            thumb_filename = f"{base}_thumb.jpg"
+            thumb_path = os.path.join(settings.MEDIA_ROOT, "posts/images/post_list_img", thumb_filename)
+
+            os.makedirs(os.path.dirname(thumb_path), exist_ok=True)
+
+            img.save(thumb_path, "JPEG", quality=70, optimize=True)
+            self._thumbnail_name = f"posts/images/post_list_img/{thumb_filename}"
+
+    @property
+    def thumbnail_url(self):
+        if hasattr(self, "_thumbnail_name"):
+            return os.path.join(settings.MEDIA_URL, self._thumbnail_name)
+        if self.image:
+            base, _ = os.path.splitext(os.path.basename(self.image.name))
+            thumb_filename = f"{base}_thumb.jpg"
+            return os.path.join(settings.MEDIA_URL, "posts/images/post_list_img", thumb_filename)
+        return None
+
     def __str__(self):
         return self.title
 
