@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import Post, Tag, Comment
 from django.contrib.auth.models import User
-
+from rest_framework import serializers
+from .models import Profile
 # Nested serializer for author
 class AuthorSerializer(serializers.ModelSerializer):
     class Meta:
@@ -62,3 +63,9 @@ class PostSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             return request.build_absolute_uri(obj.image.url)
         return None
+
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = ['id', 'full_name', 'username', 'email']
+        read_only_fields = ['id']

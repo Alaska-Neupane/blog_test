@@ -111,7 +111,8 @@ REST_FRAMEWORK = {
     # Authentication
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'posts.auth.SupabaseJWTAuthentication',  # JWT auth for API
-        'rest_framework.authentication.SessionAuthentication',  
+        'rest_framework.authentication.SessionAuthentication', 
+        'rest_framework_simplejwt.authentication.JWTAuthentication', 
     ),
 
     # Permissions
@@ -128,11 +129,11 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.AnonRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'user': '2/hour',  
+        'user': '4/hour',  
         'anon': '1/hour', 
     }
 }
-CACHES = {
+CACHES = { 
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "cache-1",
