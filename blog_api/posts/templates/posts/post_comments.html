@@ -1,0 +1,34 @@
+{% extends 'posts/base.html' %}
+
+{% block content %}
+  <h1>Comments for: {{ post.title }}</h1>
+  <p>{{ post.excerpt }}</p>
+
+  {% if comments %}
+    <ul>
+      {% for comment in comments %}
+        <li>
+          <strong>{{ comment.author.username }}</strong>
+          <small>{{ comment.created_at }}</small>
+          <p>{{ comment.content }}</p>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No comments yet.</p>
+  {% endif %}
+
+  {% if user.is_authenticated %}
+    <h3>Add a comment</h3>
+    <form method="post" action="{% url 'add_comment' post.slug %}">{% csrf_token %}
+      <textarea name="content" rows="4" cols="50"></textarea>
+      <br>
+      <button type="submit">Post Comment</button>
+    </form>
+  {% else %}
+    <p><a href="{% url 'login' %}">Log in</a> to post a comment.</p>
+  {% endif %}
+
+  <p><a href="{% url 'post_detail' post.slug %}">Back to post</a></p>
+
+{% endblock %}

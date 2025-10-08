@@ -19,6 +19,11 @@ from django.shortcuts import get_object_or_404, render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
+from rest_framework import generics, status, permissions
+from .models import Profile 
+from .searilizers import ProfileSerializer
+
+
 # Home page with search
 def post_list(request):
     query = request.GET.get("q")
@@ -51,6 +56,12 @@ def post_detail(request, slug):
             return redirect("post_detail", slug=post.slug)
 
     return render(request, "posts/post_detail.html", {"post": post, "comments": comments})
+
+
+def post_comments(request, slug):
+    post = get_object_or_404(Post, slug=slug, status="published")
+    comments = post.comments.filter(approved=True).order_by('-created_at')
+    return render(request, "posts/post_comments.html", {"post": post, "comments": comments})
 
 # --- Authentication ---
 @csrf_protect
@@ -197,6 +208,23 @@ class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
+    def get_queryset(self):
+        # Support either the explicit 'post_slug' kwarg or nested router's 'post_pk'
+        post_slug = self.kwargs.get('post_slug') or self.kwargs.get('post_pk') or self.request.query_params.get('post')
+        if post_slug:
+            return Comment.objects.filter(post__slug=post_slug, approved=True)
+        return super().get_queryset()
+
+    def perform_create(self, serializer):
+        # Attach the post (by slug from URL or nested kwarg) and the requesting user as author
+        post_slug = self.kwargs.get('post_slug') or self.kwargs.get('post_pk')
+        if post_slug:
+            post = get_object_or_404(Post, slug=post_slug)
+            serializer.save(post=post, author=self.request.user, approved=True)
+        else:
+            # fallback: expect 'post' in validated data
+            serializer.save(author=self.request.user)
+
 def add_comment(request, slug):
     post = get_object_or_404(Post, slug=slug)
     if request.method == 'POST':
@@ -212,3 +240,41 @@ class TestView(APIView):
 
     def get(self, request, *args, **kwargs):
         return Response({"message": "hello", "user": str(request.user)})
+
+
+class ProfileUpdateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _get_profile(self, user):
+        profile, created = Profile.objects.get_or_create(
+            user=user,
+            defaults={
+                "auth_id": str(user.pk),
+                "username": getattr(user, "username", f"user_{user.pk}"),
+                "email": getattr(user, "email", None),
+                "full_name": user.get_full_name() if hasattr(user, "get_full_name") else "",
+            },
+        )
+        return profile
+
+    def get(self, request):
+        profile = self._get_profile(request.user)
+        serializer = ProfileSerializer(profile, context={"request": request})
+        return Response(serializer.data)
+
+    def put(self, request):
+        profile = self._get_profile(request.user)
+        serializer = ProfileSerializer(profile, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request):
+        profile = self._get_profile(request.user)
+        serializer = ProfileSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
