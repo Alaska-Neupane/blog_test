@@ -69,3 +69,4 @@ class ProfileSerializer(serializers.ModelSerializer):
         model = Profile
         fields = ['id', 'full_name', 'username', 'email']
         read_only_fields = ['id']
+

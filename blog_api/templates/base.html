@@ -9,13 +9,13 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col">
     <nav class="h-16 bg-blue-700 text-white px-8 py-3 flex items-center gap-6">
+        {% if user.is_authenticated %}  <span class="font-bold text-lg ">Welcome, {{ user.username }}</span>{% endif %}
         <a href="/" class="font-bold text-lg hover:underline">Home</a>
         <a href="/api/posts/" class="hover:underline">API</a>
         {% if user.is_authenticated %}  
-             <span class="ml-2">Welcome, {{ user.username }}</span>
+             
             <a href="{% url 'create_post' %}" class="hover:underline">Create Post</a>
             <a href="{% url 'profile' %}" class="hover:underline">Profile</a>
-            <span class="ml-2">Welcome, {{ user.username }}</span>
             <a href="{% url 'logout' %}" class="ml-2 hover:underline">Logout</a>
         {% else %}
             <a href="{% url 'login' %}" class="hover:underline">Login</a>
