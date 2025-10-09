@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}Create AI Post{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-screen bg-gray-100 py-12">
+    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-xl">
+        <h2 class="text-3xl font-bold text-center mb-8 text-gray-900">Generate Blog with AI</h2>
+
+        <form method="post">
+            {% csrf_token %}
+            
+            <div>
+                <label for="ai_prompt" class="block text-sm font-medium text-gray-700">AI Blog Prompt</label>
+                <input type="text" name="ai_prompt" id="ai_prompt" placeholder="Enter prompt for AI"
+                    class="mt-1 block w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+            </div>
+
+            <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition mt-4">
+                Generate and Create Post
+            </button>
+
+            {% if error %}
+            <p class="text-red-500 mt-2">{{ error }}</p>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}

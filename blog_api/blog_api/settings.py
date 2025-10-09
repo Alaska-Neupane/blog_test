@@ -2,10 +2,11 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
+from decouple import config
 
 load_dotenv()
 print( dj_database_url.parse(os.getenv('DATABASE_URL')))
-
+GEMINI_API_KEY = config("GEMINI_API_KEY")
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = os.getenv('DEBUG') == 'True'
@@ -112,7 +113,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'posts.auth.SupabaseJWTAuthentication',  # JWT auth for API
         'rest_framework.authentication.SessionAuthentication', 
-        'rest_framework_simplejwt.authentication.JWTAuthentication', 
+        # 'rest_framework_simplejwt.authentication.JWTAuthentication', 
     ),
 
     # Permissions

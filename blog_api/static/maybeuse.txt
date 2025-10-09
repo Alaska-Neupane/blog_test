@@ -1,0 +1,132 @@
+# # Helper: try to extract JSON from AI text output robustly
+# logger = logging.getLogger(__name__)
+
+# def extract_json_from_text(text):
+#     """Try several heuristics to extract JSON-like content from an LLM reply.
+
+#     Strategies (in order):
+#     - Extract content inside ```json ... ``` or ``` ... ``` code fences
+#     - Find the first balanced {...} block or [...] block and use that
+#     - Try json.loads directly on the whole text
+#     - Try repairing common issues (single quotes -> double, remove trailing commas)
+#     - Fall back to ast.literal_eval for Python-style dicts
+
+#     Returns the parsed Python object or None on failure.
+#     """
+#     if not text:
+#         return None
+
+#     # 1) Code fence extraction (prefer explicit json fences)
+#     m = re.search(r"```(?:json)?\n?(.*?)```", text, re.S | re.I)
+#     if m:
+#         candidate = m.group(1).strip()
+#     else:
+        # 2) Try to find the first {...} or [...] block
+    #     start = text.find('{')
+    #     end = text.rfind('}')
+    #     if start != -1 and end != -1 and end > start:
+    #         candidate = text[start:end+1]
+    #     else:
+    #         s = text.find('[')
+    #         e = text.rfind(']')
+    #         if s != -1 and e != -1 and e > s:
+    #             candidate = text[s:e+1]
+    #         else:
+    #             candidate = text.strip()
+
+    # # 3) Try json.loads directly
+    # try:
+    #     return json.loads(candidate)
+    # except Exception:
+    #     pass
+
+    # # 4) Try some small repairs: single quotes to double, remove trailing commas
+    # try:
+    #     repaired = candidate.replace("\'", '"')
+    #     # remove trailing commas before } or ]
+    #     repaired = re.sub(r",\s*([}\]])", r"\1", repaired)
+    #     return json.loads(repaired)
+    # except Exception:
+    #     pass
+
+#     # 5) As a last resort try ast.literal_eval (accepts Python dict syntax)
+#     try:
+#         return ast.literal_eval(candidate)
+#     except Exception:
+#         logger.warning("Failed to parse AI output as JSON or Python literal. Output preview: %s", (text[:200] + '...') if text else text)
+#         return None
+
+
+# def clean_ai_content(text):
+#     """Remove common Markdown artifacts from AI-generated text before saving.
+
+#     This strips leading markdown headings (#, ##), bold/italic markers (**/***/*/_) and
+#     surrounding code fences. It performs small normalization so content like
+#     "*** Title ***" or "## Heading" becomes plain text.
+#     """
+#     if not text:
+#         return text
+
+#     # Remove triple backtick fences and their language markers
+#     text = re.sub(r"```[a-zA-Z0-9_-]*\n?(.*?)```", r"\1", text, flags=re.S)
+
+    # # Remove common markdown emphasis markers around words (***, **, __, *, _)
+    # text = re.sub(r"\*\*\*(.*?)\*\*\*", r"\1", text)
+    # text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
+    # text = re.sub(r"\*(.*?)\*", r"\1", text)
+    # text = re.sub(r"__(.*?)__", r"\1", text)
+    # text = re.sub(r"_(.*?)_", r"\1", text)
+
+    # # Remove leading/trailing markdown heading markers on lines
+    # lines = text.splitlines()
+    # cleaned_lines = []
+    # for ln in lines:
+    #     # remove leading markdown header symbols and excessive whitespace
+    #     ln = re.sub(r"^\s{0,3}#{1,6}\s*", "", ln)
+    #     # strip stray leading/trailing '*' or '-' repeated sequences
+    #     ln = re.sub(r"^[\*\-_=]{2,}\s*", "", ln)
+    #     ln = re.sub(r"\s*[\*\-_=]{2,}$", "", ln)
+    #     cleaned_lines.append(ln)
+
+    # cleaned = "\n".join(cleaned_lines).strip()
+
+#     # Collapse multiple blank lines
+#     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+
+#     return cleaned
+
+
+# def parse_and_clean_ai_output(text):
+#     """Parse AI output for JSON-like content and clean the resulting strings.
+
+#     Returns a dict with keys: title, content, excerpt. Values are cleaned strings
+#     (excerpt may be shortened to 150 chars). If parsing fails we fall back to
+#     using the original text as content.
+#     """
+#     parsed = extract_json_from_text(text)
+
+#     # Defaults
+#     title = None
+#     content = text or ""
+#     excerpt = (content[:150]) if content else ""
+
+#     # If we got a list, prefer first element
+#     if isinstance(parsed, list) and parsed:
+#         parsed = parsed[0]
+
+#     if isinstance(parsed, dict):
+#         # Common keys fallback
+#         title = parsed.get('title') or parsed.get('headline') or parsed.get('name')
+#         content = parsed.get('content') or parsed.get('body') or content
+#         excerpt = parsed.get('excerpt') or parsed.get('summary') or (content[:150])
+
+#     # Ensure strings and clean markdown artifacts
+#     title = clean_ai_content(title) if title else None
+#     content = clean_ai_content(content or "")
+#     excerpt = clean_ai_content(excerpt or "")
+
+#     # Truncate excerpt to 150 chars for safety
+#     if excerpt and len(excerpt) > 150:
+#         excerpt = excerpt[:150]
+
+#     return {"title": title, "content": content, "excerpt": excerpt}

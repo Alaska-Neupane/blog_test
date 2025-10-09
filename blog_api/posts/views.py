@@ -14,16 +14,21 @@ from django.utils.text import slugify
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect,render
 from django.contrib import messages
-from django.contrib.auth import login, authenticate, logout
-from django.shortcuts import get_object_or_404, render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 from rest_framework import generics, status, permissions
 from .models import Profile 
 from .searilizers import ProfileSerializer
-
-
+from django.http import JsonResponse
+from litellm import completion
+from django.conf import settings
+import json
+import re
+import ast
+import logging
+from django.utils import timezone
+import os
 # Home page with search
 def post_list(request):
     query = request.GET.get("q")
@@ -130,6 +135,61 @@ def create_post(request):
         return redirect("post_detail", slug=post.slug)
     return render(request, "posts/create_post.html")
 
+@login_required
+def create_post_ai(request):
+    if request.method == "POST":
+        prompt = request.POST.get("ai_prompt", "").strip()
+        if not prompt:
+            return render(request, "posts/create_post_ai.html", {"error": "Please enter a prompt!"})
+
+        try:
+            # Call AI to generate blog content
+            response = completion(
+                model="gemini/gemini-flash-lite-latest",
+                messages=[
+                    {
+                        "role": "user",
+                        "content":  f"Generate a detailed blog post about: \"{prompt}\".\n\n"
+                                     "Return your output ONLY as a valid JSON object, with these exact keys:\n"
+                                     "- title (string)\n"
+                                     "- content (string)\n"
+                                     "- excerpt (string)\n\n"
+                                    "Rules:\n"
+                                     "1. Do not include any text before or after the JSON.\n"
+                                    "2. Do not use markdown or code blocks.\n"
+                                    "3. The JSON must be valid and directly parsable using json.loads()."
+                    }
+                ],
+                api_key=settings.GEMINI_API_KEY,
+                log_file="litellm_logs.txt"
+            )
+
+            ai_output = response['choices'][0]['message']['content']
+            # parse and clean AI output into title/content/excerpt
+            
+            parsed = json.loads(ai_output)
+            title = parsed.get('title') or 'Post'
+            content = parsed.get('content')
+            excerpt = (parsed.get('excerpt') or content[:150])[:150]
+
+            # Create the post
+            post = Post.objects.create(
+                author=request.user,
+                title=title,
+                slug=slugify(title)[:50],
+                content=content,
+                excerpt=excerpt,
+                status="published",
+                published_at=timezone.now()
+            )
+
+            return redirect("post_detail", slug=post.slug)
+
+        except Exception as e:
+            return render(request, "posts/create_post_ai.html", {"error": str(e)})
+
+    return render(request, "posts/create_post_ai.html")
+
 
 @login_required
 def edit_post(request, slug):
@@ -151,9 +211,6 @@ def edit_post(request, slug):
         return redirect("post_detail", slug=post.slug)
 
     return render(request, "posts/edit_post.html", {"post": post})
-
-
-
 @login_required
 def delete_post(request, slug):
     post = get_object_or_404(Post, slug=slug)
@@ -196,6 +253,7 @@ class PostViewSet(viewsets.ModelViewSet):
         instance.save(update_fields=['click_count'])  
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
 
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()
@@ -278,3 +336,51 @@ class ProfileUpdateView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@login_required
+def generate_blog(request):
+    if request.method == "POST":
+        prompt = request.POST.get("ai_prompt", "")
+        return render(request, "posts/create_post.html", {"message": "Blog generated!"})
+    return render(request, "posts/create_post.html")
+
+
+class GenerateBlogAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        prompt = request.data.get("prompt")
+        if not prompt:
+            return Response({"error": "Prompt is required"}, status=400)
+
+        try:
+            response = completion(
+                model="gemini/gemini-flash-lite-latest",
+                messages=[{
+                    "role": "user",
+                    "content": f"Generate a detailed blog post about: {prompt}. "
+                               f"Return JSON with keys: title, content, excerpt."
+                }],
+                api_key=settings.GEMINI_API_KEY,
+                log_file="litellm_logs.txt"
+            )
+            ai_output = response['choices'][0]['message']['content']
+            parsed = parse_and_clean_ai_output(ai_output)
+            # Ensure we have sensible defaults when parsing failed
+            title = parsed.get('title') or f"AI: {prompt}"
+            content = parsed.get('content') or ai_output
+            excerpt = parsed.get('excerpt') or (content[:150])
+
+            post = Post.objects.create(
+                author=request.user,
+                title=title,
+                slug=slugify(title)[:50],
+                content=content,
+                excerpt=excerpt,
+                status="draft"
+            )
+
+            serializer = PostSerializer(post)
+            return Response(serializer.data)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
